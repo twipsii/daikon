@@ -39,6 +39,26 @@ def define_computation_graph(source_vocab_size: int, target_vocab_size: int, bat
         decoder_inputs_embedded = tf.nn.embedding_lookup(target_embedding, decoder_inputs)
 
     with tf.variable_scope("Encoder"):
+        """Bidirectional LSTM Encoder"""
+        
+        encoder_cell_fw = tf.contrib.rnn.LSTMCell(C.HIDDEN_SIZE/2)
+        encoder_cell_bw = tf.contrib.rnn.LSTMCell(C.HIDDEN_SIZE/2)
+        
+        initial_state_fw = encoder_cell_fw.zero_state(batch_size, tf.float32)
+        initial_state_bw = encoder_cell_bw.zero_state(batch_size, tf.float32)
+        
+        (output_fw, output_bw), (encoder_final_state_fw, encoder_final_state_bw) = tf.nn.bidirectional_dynamic_rnn(encoder_cell_fw, encoder_cell_bw, encoder_inputs_embedded,
+                                                                             initial_state_fw=initial_state_fw,
+                                                                             initial_state_bw=initial_state_bw,                                                                            
+                                                                             dtype=tf.float32)
+        
+        encoder_outputs = tf.concat([output_fw, output_bw], axis=2)
+        
+        encoder_final_state_c = tf.concat((encoder_final_state_fw.c, encoder_final_state_bw.c), 1)
+        encoder_final_state_h = tf.concat((encoder_final_state_fw.h, encoder_final_state_bw.h), 1)
+        encoder_final_state = tf.contrib.rnn.LSTMStateTuple(c=encoder_final_state_c, h=encoder_final_state_h)
+        
+        """
         encoder_cell = tf.contrib.rnn.LSTMCell(C.HIDDEN_SIZE)
         initial_state = encoder_cell.zero_state(batch_size, tf.float32)
 
@@ -46,6 +66,9 @@ def define_computation_graph(source_vocab_size: int, target_vocab_size: int, bat
                                                                  encoder_inputs_embedded,
                                                                  initial_state=initial_state,
                                                                  dtype=tf.float32)
+        """
+        #print("Encoder outputs:", encoder_outputs)
+        #print("Encoder final state:", encoder_final_state)
 
     with tf.variable_scope("Decoder"):
         decoder_cell = tf.contrib.rnn.LSTMCell(C.HIDDEN_SIZE)
